@@ -80,7 +80,7 @@ def doctor(cfg, db: DB, ig: IG) -> int:
 
     def _cuenta():
         yo = ig.yo()
-        if not cfg.ig_user_id:
+        if str(yo["user_id"]) != str(cfg.ig_user_id):
             guardar_en_env("IG_USER_ID", str(yo["user_id"]))
             cfg.ig_user_id = str(yo["user_id"])
         return f"@{yo['username']} (id {yo['user_id']})"
