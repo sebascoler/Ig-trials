@@ -2,6 +2,7 @@
 
   doctor            comprueba que todo está bien configurado
   diagnostico       prueba el token contra las APIs de Meta (sin mostrarlo)
+  buscar            reintenta encontrar la cuenta con el token guardado
   canjear           convierte el ?code= del login unificado en token (pide el App Secret oculto)
   probar <archivo>  publica YA un trial reel de prueba (archivo dentro del bucket)
   programar <json>  da de alta un vídeo y sus variantes en el calendario
@@ -37,6 +38,19 @@ def main(argv: list[str]) -> int:
         return diagnostico(cfg)
     if cmd == "canjear":
         return canjear(cfg)
+    if cmd == "buscar":  # reintenta encontrar la cuenta con el token ya guardado, sin repetir el login
+        import getpass
+        from .config import leer_env
+        env = leer_env()
+        app_id = env.get("META_APP_ID") or input("App ID de Meta: ").strip()
+        secreto = getpass.getpass("App Secret (no se ve al pegar): ").strip()
+        c = buscar_cuenta(cfg.ig_base, cfg.ig_token, app_id, secreto, cfg.ig_user_id)
+        if c:
+            guardar_en_env("IG_USER_ID", str(c["id"]))
+            print(f"✔ Cuenta encontrada: @{c['username']} (id {c['id']})")
+            return 0
+        print("✘ Sin cuenta. Mandá esta salida a Claude.")
+        return 1
     if cmd == "publicar":
         jobs.publicar(cfg, db, ig)
     elif cmd == "metricas":
@@ -170,19 +184,64 @@ def canjear(cfg) -> int:
         print("  (El code caduca en minutos y solo sirve una vez: repetí el login y ejecutá esto enseguida.)")
         return 1
     token = d["access_token"]
-    cuentas = requests.get(f"{base}/me/assigned_instagram_accounts",
-                           params={"fields": "id,username", "access_token": token}, timeout=30).json().get("data", [])
-    if not cuentas:
-        print("✘ Token nuevo obtenido, pero sigue sin cuentas de Instagram asignadas.")
-        print("  En el login, ¿marcaste @sebacoler en la pantalla de cuentas de Instagram? Repetilo marcándola.")
-        return 1
-    cuenta = cuentas[0]
-    guardar_en_env("IG_TOKEN", token)
-    guardar_en_env("IG_USER_ID", str(cuenta["id"]))
+    guardar_en_env("IG_TOKEN", token)       # lo guardamos siempre: así se puede seguir diagnosticando sin repetir login
     guardar_en_env("META_APP_ID", app_id)
-    print(f"✔ Listo: token nuevo guardado para @{cuenta.get('username')} (id {cuenta['id']}). "
-          f"Caducidad: {'nunca' if not d.get('expires_in') else str(int(d['expires_in']) // 86400) + ' días'}.")
+    print(f"✔ Token nuevo guardado en .env (caducidad: "
+          f"{'nunca' if not d.get('expires_in') else str(int(d['expires_in']) // 86400) + ' días'}).")
+    cuenta = buscar_cuenta(base, token, app_id, secreto, cfg.ig_user_id)
+    if not cuenta:
+        print("✘ El token no llega a ninguna cuenta de Instagram. Mandá esta salida a Claude.")
+        return 1
+    guardar_en_env("IG_USER_ID", str(cuenta["id"]))
+    print(f"✔ Cuenta encontrada: @{cuenta.get('username')} (id {cuenta['id']}). Ya podés ejecutar: bash install.sh")
     return 0
+
+
+def buscar_cuenta(base: str, token: str, app_id: str, secreto: str, id_conocido: str) -> dict | None:
+    """Prueba todas las vías conocidas para llegar a la cuenta de Instagram. Imprime solo IDs y nombres."""
+    import requests
+
+    def get(ruta, **params):
+        try:
+            return requests.get(f"{base}/{ruta}", params={**params, "access_token": token}, timeout=30).json()
+        except Exception as e:  # noqa: BLE001
+            return {"error": {"message": str(e)}}
+
+    candidatos: list[str] = []
+    # 1. Qué cuentas concretas cubre cada permiso (debug_token con el token de app)
+    dbg = requests.get(f"{base}/debug_token", params={"input_token": token, "access_token": f"{app_id}|{secreto}"},
+                       timeout=30).json().get("data", {})
+    print(f"  · tipo de token: {dbg.get('type')} · válido: {dbg.get('is_valid')} · usuario: {dbg.get('user_id')}")
+    for g in dbg.get("granular_scopes", []):
+        print(f"  · {g.get('scope')}: {g.get('target_ids') or 'sin cuentas concretas'}")
+        if g.get("scope", "").startswith("instagram"):
+            candidatos += [str(t) for t in g.get("target_ids") or []]
+    # 2. Cuentas asignadas al usuario del sistema
+    asignadas = get("me/assigned_instagram_accounts", fields="id,username")
+    print(f"  · assigned_instagram_accounts: {asignadas.get('data', asignadas.get('error', {}).get('message'))}")
+    candidatos += [str(c["id"]) for c in asignadas.get("data", [])]
+    # 3. Cuentas del portfolio del cliente
+    yo = get("me", fields="id,name,client_business_id")
+    biz = yo.get("client_business_id")
+    print(f"  · usuario del sistema: {yo.get('name')} · portfolio: {biz}")
+    if biz:
+        for ruta in ("owned_instagram_accounts", "instagram_accounts"):
+            r = get(f"{biz}/{ruta}", fields="id,username")
+            print(f"  · {ruta}: {r.get('data', r.get('error', {}).get('message', ''))}")
+            candidatos += [str(c["id"]) for c in r.get("data", [])]
+    if id_conocido:
+        candidatos.append(str(id_conocido))
+    # Probar cada candidato directamente
+    vistos = set()
+    for cid in candidatos:
+        if cid in vistos:
+            continue
+        vistos.add(cid)
+        r = get(cid, fields="id,username")
+        if r.get("username"):
+            return {"id": r["id"], "username": r["username"]}
+        print(f"  · {cid}: {r.get('error', {}).get('message', 'sin username')[:100]}")
+    return None
 
 
 def _faltan(cfg) -> str:
