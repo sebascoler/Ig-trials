@@ -1,6 +1,7 @@
 """Uso: python -m igtrials <comando>
 
   doctor            comprueba que todo está bien configurado
+  diagnostico       prueba el token contra las APIs de Meta (sin mostrarlo)
   probar <archivo>  publica YA un trial reel de prueba (archivo dentro del bucket)
   programar <json>  da de alta un vídeo y sus variantes en el calendario
   estado            muestra lo próximo y lo último publicado
@@ -31,6 +32,8 @@ def main(argv: list[str]) -> int:
 
     if cmd == "doctor":
         return doctor(cfg, db, ig)
+    if cmd == "diagnostico":
+        return diagnostico(cfg)
     if cmd == "publicar":
         jobs.publicar(cfg, db, ig)
     elif cmd == "metricas":
@@ -87,6 +90,50 @@ def doctor(cfg, db: DB, ig: IG) -> int:
     if caduca:
         check("Token caduca", lambda: caduca[:10])
     return 0 if ok else 1
+
+
+def diagnostico(cfg) -> int:
+    """Prueba el token contra las dos APIs de Meta y dice qué modo usar. Nunca imprime el token."""
+    import requests
+
+    tok = cfg.ig_token
+    print(f"Token: {len(tok)} caracteres, empieza por '{tok[:3]}…'  ·  IG_USER_ID={cfg.ig_user_id or '(vacío)'}")
+    pruebas = [
+        ("facebook", f"https://graph.facebook.com/{cfg.ig_api_version}/me", {"fields": "id,name"}),
+        ("facebook", f"https://graph.facebook.com/{cfg.ig_api_version}/me/assigned_instagram_accounts",
+         {"fields": "id,username"}),
+        ("facebook", f"https://graph.facebook.com/{cfg.ig_api_version}/me/accounts",
+         {"fields": "name,instagram_business_account{id,username}"}),
+        ("facebook", f"https://graph.facebook.com/{cfg.ig_api_version}/me/permissions", {}),
+        ("facebook", f"https://graph.facebook.com/{cfg.ig_api_version}/{cfg.ig_user_id or 'me'}",
+         {"fields": "id,username"}),
+        ("instagram", f"https://graph.instagram.com/{cfg.ig_api_version}/me", {"fields": "user_id,username"}),
+    ]
+    ok = {"facebook": False, "instagram": False}
+    for host, url, params in pruebas:
+        ruta = url.split(".com/")[1]
+        try:
+            r = requests.get(url, params={**params, "access_token": tok}, timeout=30)
+            d = r.json()
+        except Exception as e:  # noqa: BLE001
+            print(f"  ✘ {host:9} {ruta}: {e}")
+            continue
+        if "error" in d:
+            print(f"  ✘ {host:9} {ruta}: {d['error'].get('message', '')[:120]}")
+            continue
+        txt = json.dumps(d.get("data", d), ensure_ascii=False)
+        if ruta.endswith("/permissions"):
+            txt = ", ".join(p["permission"] for p in d.get("data", []) if p.get("status") == "granted")
+        print(f"  ✔ {host:9} {ruta}: {txt[:200]}")
+        if "username" in txt and ruta.endswith((cfg.ig_user_id or "@@", "/me")) and "username" in d:
+            ok[host] = True
+    if ok["facebook"]:
+        print("\n→ Usar IG_LOGIN=unificado (el actual por defecto).")
+    elif ok["instagram"]:
+        print("\n→ Usar IG_LOGIN=instagram. Ejecutá:  sed -i 's/^IG_LOGIN=.*/IG_LOGIN=instagram/' .env")
+    else:
+        print("\n→ Ninguna combinación llegó a la cuenta. Mandá esta salida a Claude.")
+    return 0
 
 
 def _faltan(cfg) -> str:

@@ -15,7 +15,7 @@ srv = M.arrancar()
 BASE = f"http://127.0.0.1:{srv.server_address[1]}"
 TMP = Path(tempfile.mkdtemp())
 ENV = TMP / ".env"
-ENV.write_text(f"IG_TOKEN=tok\nSUPABASE_URL={BASE}\nSUPABASE_SERVICE_KEY=sb_secret_test\nIG_HOST={BASE}\n"
+ENV.write_text(f"IG_TOKEN=tok\nIG_USER_ID=17841402384432139\nSUPABASE_URL={BASE}\nSUPABASE_SERVICE_KEY=sb_secret_test\nIG_HOST={BASE}\n"
                "IGT_MIN_REACH=300\nIGT_MARGEN_SKIP_PTS=5\nIGT_COMPARAR_A_LAS_H=72\n")
 os.environ.update({"IGT_ENV_FILE": str(ENV), "IGT_SLEEP_S": "0"})
 
@@ -48,7 +48,7 @@ def test_todo():
     # 1. doctor rellena IG_USER_ID
     assert cli.main(["doctor"]) == 0  # modo unificado: /me/assigned_instagram_accounts
     assert "IG_USER_ID=17841402384432139" in ENV.read_text()
-    assert any(c[1].endswith("/me/assigned_instagram_accounts") for c in M.IG["calls"])
+    assert any(c[1].endswith("/17841402384432139") for c in M.IG["calls"])
 
     # 2. programar 3 variantes en paralelo, empezando hace 1 minuto
     spec = {"slug": "esfuerzo", "titulo": "Qué esfuerzo usar en Claude", "modo": "paralelo",

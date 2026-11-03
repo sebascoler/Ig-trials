@@ -152,7 +152,9 @@ class H(BaseHTTPRequestHandler):
             return self._send(200, {"access_token": "token_nuevo", "token_type": "bearer", "expires_in": 5184000})
         partes = partes[1:]  # quitar versión
         if partes == ["me", "assigned_instagram_accounts"]:
-            return self._send(200, {"data": [{"id": "17841402384432139", "username": "sebacoler"}]})
+            return self._send(200, {"data": []})  # como en la vida real con tokens del panel
+        if metodo == "GET" and partes == ["17841402384432139"]:
+            return self._send(200, {"id": "17841402384432139", "username": "sebacoler"})
         if partes == ["me"]:
             return self._send(200, {"user_id": "17841400000000000", "username": "sebacoler"})
         if metodo == "POST" and len(partes) == 2 and partes[1] == "media":

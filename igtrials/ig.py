@@ -63,6 +63,14 @@ class IG:
         """Devuelve {"user_id", "username"} de la cuenta de Instagram del token."""
         if self.cfg.ig_login == "instagram":
             return self._req("GET", "me", fields="user_id,username")
+        # 1) Si conocemos el ID de la cuenta, preguntamos directamente por ella (lo más fiable con tokens del panel)
+        if self.cfg.ig_user_id:
+            try:
+                d = self._req("GET", self.cfg.ig_user_id, fields="id,username")
+                return {"user_id": d["id"], "username": d.get("username", "?")}
+            except IGError:
+                pass
+        # 2) Si no, la lista de cuentas que Meta asignó al usuario del sistema
         cuentas = self._req("GET", "me/assigned_instagram_accounts", fields="id,username").get("data", [])
         if not cuentas:
             raise IGError("El token no tiene ninguna cuenta de Instagram asignada. Generalo de nuevo "
