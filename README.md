@@ -32,8 +32,8 @@ VPS Hostinger (cron) ───┘  publica cada 10 min · mide cada hora · comp
 1. Conectá Instagram siguiendo `docs/META_SETUP.md`.
 2. En el VPS:
    ```bash
-   git clone https://github.com/sebascoler/videoxperiment.git   # o donde viva este código
-   cd videoxperiment/ig-trials
+   git clone https://github.com/sebascoler/ig-trials.git   # repo privado: pide tu usuario y un token de GitHub
+   cd ig-trials
    bash install.sh          # crea .env y se para
    nano .env                # pegá IG_TOKEN y SUPABASE_SERVICE_KEY
    bash install.sh          # comprueba todo y deja el cron programado
