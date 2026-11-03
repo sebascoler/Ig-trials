@@ -4,13 +4,23 @@ set -euo pipefail
 cd "$(dirname "$0")"
 DIR="$(pwd)"
 
-echo "→ Comprobando Python 3.10+"
-command -v python3 >/dev/null || { sudo apt-get update && sudo apt-get install -y python3 python3-venv; }
-python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)' || { echo "Necesito Python 3.10 o superior"; exit 1; }
-python3 -m venv --help >/dev/null 2>&1 || sudo apt-get install -y python3-venv
+SUDO=""; [ "$(id -u)" -ne 0 ] && SUDO="sudo"
 
-echo "→ Entorno virtual"
-[ -d .venv ] || python3 -m venv .venv
+echo "→ Comprobando Python 3.10+"
+command -v python3 >/dev/null || { $SUDO apt-get update -qq && $SUDO apt-get install -y -qq python3; }
+python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)' || { echo "Necesito Python 3.10 o superior"; exit 1; }
+
+echo "→ Entorno virtual (aislado: no toca el Python del sistema)"
+if [ ! -x .venv/bin/python ]; then
+  rm -rf .venv
+  if ! python3 -m venv .venv 2>/dev/null; then
+    # Ubuntu trae Python sin el módulo venv: instalamos solo ese paquete estándar
+    rm -rf .venv
+    PYV=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+    $SUDO apt-get update -qq && { $SUDO apt-get install -y -qq "python${PYV}-venv" || $SUDO apt-get install -y -qq python3-venv; }
+    python3 -m venv .venv
+  fi
+fi
 .venv/bin/pip install -q --upgrade pip
 .venv/bin/pip install -q -r requirements.txt
 
