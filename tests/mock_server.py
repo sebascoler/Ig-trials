@@ -151,7 +151,13 @@ class H(BaseHTTPRequestHandler):
         if path == "/refresh_access_token":
             return self._send(200, {"access_token": "token_nuevo", "token_type": "bearer", "expires_in": 5184000})
         partes = partes[1:]  # quitar versión
+        if partes == ["oauth", "access_token"]:
+            if p.get("code") != "CODIGO" or p.get("client_secret") != "secreto":
+                return self._send(400, {"error": {"message": "Invalid verification code"}})
+            return self._send(200, {"access_token": "token_canjeado", "token_type": "bearer"})
         if partes == ["me", "assigned_instagram_accounts"]:
+            if p.get("access_token") == "token_canjeado":
+                return self._send(200, {"data": [{"id": "17841400000000099", "username": "sebacoler"}]})
             return self._send(200, {"data": []})  # como en la vida real con tokens del panel
         if metodo == "GET" and partes == ["17841402384432139"]:
             return self._send(200, {"id": "17841402384432139", "username": "sebacoler"})

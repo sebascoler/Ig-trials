@@ -2,6 +2,7 @@
 
   doctor            comprueba que todo está bien configurado
   diagnostico       prueba el token contra las APIs de Meta (sin mostrarlo)
+  canjear           convierte el ?code= del login unificado en token (pide el App Secret oculto)
   probar <archivo>  publica YA un trial reel de prueba (archivo dentro del bucket)
   programar <json>  da de alta un vídeo y sus variantes en el calendario
   estado            muestra lo próximo y lo último publicado
@@ -34,6 +35,8 @@ def main(argv: list[str]) -> int:
         return doctor(cfg, db, ig)
     if cmd == "diagnostico":
         return diagnostico(cfg)
+    if cmd == "canjear":
+        return canjear(cfg)
     if cmd == "publicar":
         jobs.publicar(cfg, db, ig)
     elif cmd == "metricas":
@@ -133,6 +136,52 @@ def diagnostico(cfg) -> int:
         print("\n→ Usar IG_LOGIN=instagram. Ejecutá:  sed -i 's/^IG_LOGIN=.*/IG_LOGIN=instagram/' .env")
     else:
         print("\n→ Ninguna combinación llegó a la cuenta. Mandá esta salida a Claude.")
+    return 0
+
+
+def canjear(cfg) -> int:
+    """Convierte el ?code=... del login unificado en un token de usuario del sistema con la cuenta asignada.
+    Pide el App Secret sin mostrarlo y guarda token e ID en .env. Nada se imprime."""
+    import getpass
+    from urllib.parse import parse_qs, urlparse
+
+    import requests
+
+    from .config import leer_env
+
+    env = leer_env()
+    base = cfg.ig_base if cfg.ig_login != "instagram" else f"https://graph.facebook.com/{cfg.ig_api_version}"
+    app_id = env.get("META_APP_ID") or input("App ID de Meta (número largo): ").strip()
+    secreto = getpass.getpass("App Secret (no se ve al pegar): ").strip()
+    url = getpass.getpass("URL completa a la que te llevó el login (no se ve al pegar): ").strip()
+    q = parse_qs(urlparse(url).query)
+    code = (q.get("code") or [url if "://" not in url else ""])[0]
+    if not code:
+        print("✘ Esa URL no tiene ?code=. Repetí el login y copiá la dirección completa de la barra del navegador.")
+        return 1
+    redirect = env.get("META_REDIRECT_URI", "https://aprendes.ai/")
+    params = {"client_id": app_id, "client_secret": secreto, "code": code}
+    d = requests.get(f"{base}/oauth/access_token", params={**params, "redirect_uri": redirect}, timeout=30).json()
+    if "error" in d:
+        d2 = requests.get(f"{base}/oauth/access_token", params=params, timeout=30).json()
+        d = d2 if "error" not in d2 else d
+    if "error" in d:
+        print(f"✘ Meta rechazó el canje: {d['error'].get('message', '')[:200]}")
+        print("  (El code caduca en minutos y solo sirve una vez: repetí el login y ejecutá esto enseguida.)")
+        return 1
+    token = d["access_token"]
+    cuentas = requests.get(f"{base}/me/assigned_instagram_accounts",
+                           params={"fields": "id,username", "access_token": token}, timeout=30).json().get("data", [])
+    if not cuentas:
+        print("✘ Token nuevo obtenido, pero sigue sin cuentas de Instagram asignadas.")
+        print("  En el login, ¿marcaste @sebacoler en la pantalla de cuentas de Instagram? Repetilo marcándola.")
+        return 1
+    cuenta = cuentas[0]
+    guardar_en_env("IG_TOKEN", token)
+    guardar_en_env("IG_USER_ID", str(cuenta["id"]))
+    guardar_en_env("META_APP_ID", app_id)
+    print(f"✔ Listo: token nuevo guardado para @{cuenta.get('username')} (id {cuenta['id']}). "
+          f"Caducidad: {'nunca' if not d.get('expires_in') else str(int(d['expires_in']) // 86400) + ' días'}.")
     return 0
 
 

@@ -154,7 +154,25 @@ def test_decision_sin_ganador():
     assert jobs._pct(0.42) == 42.0 and jobs._pct(57) == 57.0
 
 
+def test_canjear():
+    import builtins
+    import getpass
+    respuestas = iter(["secreto", "https://aprendes.ai/?code=CODIGO&state=x#_=_"])
+    getpass.getpass = lambda *a, **k: next(respuestas)
+    builtins.input = lambda *a, **k: "1740730653652136"
+    antes = ENV.read_text()
+    assert cli.main(["canjear"]) == 0
+    t = ENV.read_text()
+    assert "IG_TOKEN=token_canjeado" in t and "IG_USER_ID=17841400000000099" in t and "META_APP_ID=1740730653652136" in t
+    # code incorrecto → no toca .env
+    ENV.write_text(antes)
+    respuestas = iter(["mal", "https://aprendes.ai/?code=OTRO"])
+    getpass.getpass = lambda *a, **k: next(respuestas)
+    assert cli.main(["canjear"]) == 1 and ENV.read_text() == antes
+
+
 if __name__ == "__main__":
     test_todo()
     test_decision_sin_ganador()
+    test_canjear()
     print("\nOK: todas las pruebas pasaron")
