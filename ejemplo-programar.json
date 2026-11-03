@@ -1,0 +1,12 @@
+{
+  "slug": "esfuerzo-claude",
+  "titulo": "Qué esfuerzo usar en Claude",
+  "modo": "paralelo",
+  "inicio": "2026-11-10T17:00",
+  "caption": "Guardalo para la próxima vez que abras Claude.",
+  "variantes": [
+    {"variante": "A", "archivo": "esfuerzo-claude/A.mp4", "hook": "Estás tirando tu dinero en Claude", "principio": "dolor directo"},
+    {"variante": "B", "archivo": "esfuerzo-claude/B.mp4", "hook": "No cambies de modelo, cambiá el esfuerzo", "principio": "contra-corriente"},
+    {"variante": "C", "archivo": "esfuerzo-claude/C.mp4", "hook": "3 niveles de esfuerzo y cuándo usar cada uno", "principio": "promesa con resultado"}
+  ]
+}
