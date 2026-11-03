@@ -46,8 +46,9 @@ def envejecer(horas):
 
 def test_todo():
     # 1. doctor rellena IG_USER_ID
-    assert cli.main(["doctor"]) == 0
-    assert "IG_USER_ID=17841400000000000" in ENV.read_text()
+    assert cli.main(["doctor"]) == 0  # modo unificado: /me/assigned_instagram_accounts
+    assert "IG_USER_ID=17841402384432139" in ENV.read_text()
+    assert any(c[1].endswith("/me/assigned_instagram_accounts") for c in M.IG["calls"])
 
     # 2. programar 3 variantes en paralelo, empezando hace 1 minuto
     spec = {"slug": "esfuerzo", "titulo": "Qué esfuerzo usar en Claude", "modo": "paralelo",
@@ -103,7 +104,12 @@ def test_todo():
     texto = jobs.GANCHOS_PATH.read_text()
     assert "Estás tirando tu dinero en Claude" in texto and "| pérdida |" in texto
 
-    # 6. token
+    # 6. token — unificado: solo comprueba que siga vivo, no toca .env
+    cli.main(["token"])
+    assert "IG_TOKEN=tok" in ENV.read_text()
+    assert json.loads(jobs.ESTADO_PATH.read_text())["token_comprobado_en"]
+    # modo instagram (apps antiguas): renovación cada 7 días
+    os.environ["IG_LOGIN"] = "instagram"
     cli.main(["token"])  # primera vez: solo empieza a contar
     assert "IG_TOKEN=tok" in ENV.read_text()
     e = json.loads(jobs.ESTADO_PATH.read_text())
@@ -112,6 +118,7 @@ def test_todo():
     cli.main(["token"])
     assert "IG_TOKEN=token_nuevo" in ENV.read_text()
     assert cli.main(["token"]) == 0 and json.loads(jobs.ESTADO_PATH.read_text())["token_renovado_en"]
+    del os.environ["IG_LOGIN"]
 
     # 7. vídeo inexistente y vídeo que Instagram rechaza
     spec2 = {"slug": "malo", "titulo": "Errores", "inicio": (jobs.ahora() - timedelta(minutes=1)).isoformat(),

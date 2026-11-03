@@ -300,7 +300,20 @@ def _guardar_estado(e: dict) -> None:
 
 
 def renovar_token(cfg: Config, ig: IG, cada_dias: int = 7, forzar: bool = False) -> bool:
-    """El token dura 60 días. Lo renovamos cada semana: si el VPS se cae unos días, sobra margen."""
+    """Modo "unificado": el token de usuario del sistema no se renueva; solo comprobamos cada día que siga
+    vivo y avisamos al móvil si deja de funcionar.
+    Modo "instagram": el token dura 60 días; lo renovamos cada semana para tener margen de sobra."""
+    if cfg.ig_login != "instagram":
+        try:
+            yo = ig.yo()
+            e = _estado()
+            e["token_comprobado_en"] = ahora().isoformat()
+            _guardar_estado(e)
+            log(f"Token OK (@{yo['username']})")
+        except IGError as err:
+            avisar(cfg, "Token de Instagram", f"El token dejó de funcionar: {err}. Generá uno nuevo en Meta "
+                                              "(Casos de uso → Instagram → Generar token) y pegalo en .env.", "high")
+        return False
     e = _estado()
     ultimo = parse_ts(e.get("token_renovado_en"))
     if not forzar and ultimo is None:

@@ -1,4 +1,11 @@
-"""Cliente de la API de Instagram (Instagram Login, graph.instagram.com)."""
+"""Cliente de la API de Instagram.
+
+Dos modos de login (IG_LOGIN en .env):
+- "unificado" (por defecto): apps de Meta creadas desde finales de oct-2026. Token de usuario del sistema
+  (SUAT, EAA...) y graph.facebook.com.
+- "instagram": apps antiguas con "API setup with Instagram login". Token de 60 días y graph.instagram.com.
+Publicar, consultar el estado del contenedor y leer métricas usan las mismas rutas en los dos modos.
+"""
 from __future__ import annotations
 
 import json
@@ -53,9 +60,18 @@ class IG:
 
     # --- cuenta y token -------------------------------------------------
     def yo(self) -> dict:
-        return self._req("GET", "me", fields="user_id,username")
+        """Devuelve {"user_id", "username"} de la cuenta de Instagram del token."""
+        if self.cfg.ig_login == "instagram":
+            return self._req("GET", "me", fields="user_id,username")
+        cuentas = self._req("GET", "me/assigned_instagram_accounts", fields="id,username").get("data", [])
+        if not cuentas:
+            raise IGError("El token no tiene ninguna cuenta de Instagram asignada. Generalo de nuevo "
+                          "eligiendo @tu-cuenta en el login.")
+        elegida = next((c for c in cuentas if str(c["id"]) == str(self.cfg.ig_user_id)), cuentas[0])
+        return {"user_id": elegida["id"], "username": elegida.get("username", "?")}
 
     def refrescar_token(self) -> dict:
+        """Solo para el modo "instagram" (token de 60 días)."""
         # Este endpoint no lleva versión
         return self._req("GET", "refresh_access_token", base=self.cfg.ig_host, grant_type="ig_refresh_token")
 

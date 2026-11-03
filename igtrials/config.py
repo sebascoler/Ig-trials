@@ -41,6 +41,7 @@ def guardar_en_env(clave: str, valor: str, path: Path = ENV_PATH) -> None:
 class Config:
     ig_token: str
     ig_user_id: str
+    ig_login: str  # "unificado" (apps nuevas, graph.facebook.com) o "instagram" (apps antiguas, graph.instagram.com)
     ig_api_version: str
     ig_host: str
     supabase_url: str
@@ -64,11 +65,14 @@ class Config:
 
 def cargar() -> Config:
     e = {**leer_env(), **{k: v for k, v in os.environ.items() if k.startswith(("IG_", "SUPABASE_", "IGT_"))}}
+    login = e.get("IG_LOGIN", "unificado").lower()
+    host_defecto = "https://graph.instagram.com" if login == "instagram" else "https://graph.facebook.com"
     return Config(
         ig_token=e.get("IG_TOKEN", ""),
         ig_user_id=e.get("IG_USER_ID", ""),
-        ig_api_version=e.get("IG_API_VERSION", "v25.0"),
-        ig_host=e.get("IG_HOST", "https://graph.instagram.com").rstrip("/"),
+        ig_login=login,
+        ig_api_version=e.get("IG_API_VERSION", "v26.0"),
+        ig_host=e.get("IG_HOST", host_defecto).rstrip("/"),
         supabase_url=e.get("SUPABASE_URL", "").rstrip("/"),
         supabase_key=e.get("SUPABASE_SERVICE_KEY", ""),
         bucket=e.get("IGT_BUCKET", "reels"),

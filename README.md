@@ -25,7 +25,7 @@ Vos/Claude ──► Supabase (ContentGenerator)
                ├─ ig_metricas         ← fotos a 24h/72h/7d
                └─ ig_resultados       ← veredictos + ranking de principios
                         ▲
-VPS Hostinger (cron) ───┘  publica cada 10 min · mide cada hora · compara 9:30 · renueva token
+VPS Hostinger (cron) ───┘  publica cada 10 min · mide cada hora · compara 9:30 · vigila el token
 ```
 
 ## Instalación (una vez)
@@ -67,7 +67,7 @@ VPS Hostinger (cron) ───┘  publica cada 10 min · mide cada hora · comp
 | `probar <archivo>` | Publica ya un trial de prueba |
 | `programar <json>` | Da de alta un vídeo y sus variantes |
 | `comparar [slug]` | Fuerza la comparación (normalmente va solo por cron) |
-| `token --forzar` | Renueva el token ahora |
+| `token` | Comprueba que el token sigue vivo (y lo renueva en modo `instagram`) |
 
 Si una variante queda en `error` (te llega aviso), corregí el archivo y poné su estado en `pendiente` desde
 Supabase, o en `cancelado` para comparar sin ella.
@@ -76,7 +76,11 @@ Supabase, o en `cancelado` para comparar sin ella.
 - `reels_skip_rate` solo existe por API (en la app no se ve) y Meta lo marca como métrica «estimada, en desarrollo».
 - Hay reportes de un límite de unos 20 trial reels al día por API. El sistema se frena en 15 (`IGT_MAX_TRIALS_24H`).
 - Las variantes tienen que ser realmente distintas en los primeros segundos. Instagram castiga el contenido duplicado.
-- Versión de la API: `v25.0` (soportada hasta 2028). Se cambia en `.env` con `IG_API_VERSION`.
+- Login: las apps nuevas de Meta usan **login unificado** (token de usuario del sistema, `graph.facebook.com`,
+  `v26.0`). El token no se renueva: el cron comprueba cada día que siga vivo y avisa si deja de funcionar.
+  Para apps antiguas con Instagram login: `IG_LOGIN=instagram` (token de 60 días, renovado cada semana).
+- Que los trial reels (`trial_params`) y `reels_skip_rate` funcionen con el login unificado lo confirma la
+  primera prueba real (`probar`). Meta no lo detalla en la documentación del login unificado.
 
 ## Tests
 `python3 tests/test_flujo.py` simula Instagram y Supabase y prueba el ciclo completo: publicar, reintentar,

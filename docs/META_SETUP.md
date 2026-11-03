@@ -1,39 +1,49 @@
 # Conectar @sebacoler a la API de Instagram (≈15 min, una sola vez)
 
+> **Nota (nov-2026):** desde finales de octubre de 2026 Meta ya no ofrece "API setup with Instagram login" a las
+> apps nuevas: las obliga a usar **"API setup with Unified login"**. Esta guía sigue ese camino nuevo. El token
+> es de *usuario del sistema* (SUAT, empieza por `EAA…`), va contra `graph.facebook.com` y no hay que renovarlo
+> cada 60 días. Si alguna vez usás una app antigua con Instagram login, poné `IG_LOGIN=instagram` en `.env`.
+
 Requisito: @sebacoler tiene que ser **cuenta profesional (Creador o Empresa) y pública**.
-En la app: Configuración → Tipo de cuenta y herramientas → Cambiar a cuenta profesional.
 
-## 1. Crear la app de Meta
-1. Entrá a **developers.facebook.com** con tu Facebook → **Mis apps** → **Crear app**.
-2. Caso de uso: **Otro** → Tipo: **Empresa (Business)** → nombre, por ejemplo `ig-trials-sebas`.
-3. En el panel de la app: **Añadir producto → Instagram → Configurar**.
-   Elegí **"API setup with Instagram login"** (no la variante con Facebook Login).
+## 1. Crear la app
+1. **developers.facebook.com → Mis apps → Crear app**.
+2. Nombre (por ejemplo `trials-sebas`) y email.
+3. Caso de uso: **"Administrar mensajes y contenido en Instagram"**.
+4. Crear app.
 
-## 2. Darte permiso como tester
-Mientras la app esté en modo desarrollo, solo la usan cuentas con rol:
-1. **Roles de la app → Roles → Añadir personas → Instagram Tester** → escribí `sebacoler`.
-2. En Instagram (web o app): **Configuración → Apps y sitios web → Invitaciones de tester → Aceptar**.
+## 2. Permisos
+**Casos de uso → Personalizar → Permisos y funciones**: que estén agregados
+`instagram_business_basic`, `instagram_business_content_publish` e `instagram_business_manage_insights`.
 
-No hace falta App Review: es tu propia cuenta (acceso estándar).
+## 3. Tester
+1. **Roles de la app → Roles → Agregar personas → Evaluador de Instagram** → `sebacoler`.
+2. **instagram.com → Configuración → Apps y sitios web → Invitaciones de evaluador → Aceptar**.
 
-## 3. Generar el token
-1. **Instagram → API setup with Instagram login → 1. Generate access tokens → Add account**.
-2. Iniciá sesión con @sebacoler y aceptá los permisos. Tienen que quedar marcados:
-   - `instagram_business_basic`
-   - `instagram_business_content_publish`
-   - `instagram_business_manage_insights` (sin este no hay métricas)
-3. Pulsá **Generate token** y copiá el token largo (empieza por `IG…` o `EA…`).
+## 4. Configuración del login unificado
+**Casos de uso → Personalizar → API setup with Unified login → 1. Configurar tu app**:
+1. Crear configuración. Token: **usuario del sistema (SUAT)**; vencimiento: **Nunca**, si te deja elegir.
+2. **Editar permisos**: `instagram_basic`, `instagram_manage_messages` (obligatorio),
+   `instagram_content_publish` y `instagram_manage_insights`.
+3. **Usar esta configuración**. Elegí un portfolio comercial si te lo pide.
+4. URL de redireccionamiento: `https://aprendes.ai/`. Es obligatoria pero no la usamos. Guardar.
 
-⚠️ El token es como una contraseña: no lo pegues en chats ni en GitHub. Va **solo** en el archivo `.env` del VPS.
-Dura 60 días, pero el sistema lo renueva solo cada semana.
+## 5. Generar el token
+**2. Generar tokens de acceso** → al lado de `sebacoler` → **Generar token** → login → copiá el token `EAA…`.
+Meta lo muestra **una sola vez**. Guardalo en tu gestor de contraseñas y después pegalo **solo** en el `.env`
+del VPS (`IG_TOKEN=`). Nunca en chats ni en GitHub.
 
-## 4. Clave de Supabase
-Supabase → proyecto **ContentGenerator** → **Project Settings → API Keys** → copiá la **secret key** (`sb_secret_…`).
-También va solo en el `.env` del VPS.
+El ID de la cuenta (`17841402384432139`) ya viene puesto en `.env.example`.
+
+## 6. Clave de Supabase
+Supabase → proyecto **ContentGenerator** → **Project Settings → API Keys** → **secret key** (`sb_secret_…`)
+→ `SUPABASE_SERVICE_KEY=` en el `.env` del VPS.
 
 ## Si algo falla
 | Síntoma | Causa probable |
 |---|---|
-| `Invalid OAuth access token` / código 190 | Token caducado o mal copiado. Generá uno nuevo (paso 3). |
-| `Application does not have permission` | Falta algún permiso del paso 3.2. Volvé a generar el token marcándolo. |
-| La cuenta no aparece al añadirla | No aceptaste la invitación de tester (paso 2.2) o la cuenta no es profesional. |
+| `Invalid OAuth access token` / código 190 | Token mal copiado, revocado o caducado. Generá uno nuevo (paso 5). |
+| `El token no tiene ninguna cuenta de Instagram asignada` | En el login del paso 5 no quedó marcada @sebacoler. Repetilo. |
+| `Application does not have permission` | Falta `instagram_content_publish` o `instagram_manage_insights` en la configuración (paso 4.2). Editala y generá un token nuevo. |
+| La cuenta no aparece al añadirla | No aceptaste la invitación de evaluador (paso 3.2) o la cuenta no es profesional. |
