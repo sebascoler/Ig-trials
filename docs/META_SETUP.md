@@ -4,6 +4,13 @@
 > apps nuevas: las obliga a usar **"API setup with Unified login"**. Esta guía sigue ese camino nuevo. El token
 > es de *usuario del sistema* (SUAT, empieza por `EAA…`), va contra `graph.facebook.com` y no hay que renovarlo
 > cada 60 días. Si alguna vez usás una app antigua con Instagram login, poné `IG_LOGIN=instagram` en `.env`.
+>
+> **⚠️ Estado real (3-nov-2026):** con @sebacoler el login unificado entrega un token válido pero **sin la cuenta
+> asignada** (`granular_scopes` vacíos), aunque se comparta en el login. Otros desarrolladores reportan lo mismo.
+> **Lo que funciona hoy:** usar una app de Meta creada antes de finales de octubre (la de OpenReply), que
+> todavía tiene "Configuración de la API con inicio de sesión con Instagram": permisos `instagram_business_*`,
+> tester y "Generar token" (`IG…`, 60 días). En `.env`: `IG_LOGIN=instagram` y `IG_USER_ID=` vacío
+> (`doctor` lo rellena). El cron renueva ese token cada semana.
 
 Requisito: @sebacoler tiene que ser **cuenta profesional (Creador o Empresa) y pública**.
 
